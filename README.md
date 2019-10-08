@@ -14,7 +14,7 @@ This library abstracts the amqplib layers and can work with a cleaner code.
 
 This session will show you how to use the library:
 
-![diagram](./static/diagram.PNG)
+![diagram](https://raw.githubusercontent.com/rafaeldias97/RabbitLibNode/master/static/diagram.PNG)
 
 ##### How to import
 ```JS
