@@ -22,11 +22,15 @@ module.exports = class RabbitMQ {
                 ch.prefetch(1);
                 let _self = this
                 ch.consume(this.q, async function reply (msg) {
-                    let res = await _self.callback(JSON.parse(msg.content.toString()));
-                    ch.sendToQueue(msg.properties.replyTo,
-                        new Buffer(JSON.stringify(res)),
-                        { correlationId: msg.properties.correlationId });
-                    ch.ack(msg);
+                    try {
+                        let res = await _self.callback(JSON.parse(msg.content.toString()));
+                        ch.sendToQueue(msg.properties.replyTo,
+                            new Buffer(JSON.stringify(res)),
+                            { correlationId: msg.properties.correlationId });
+                        ch.ack(msg);
+                    } catch(e) {
+                        console.error(e);
+                    }
                 });
             });
         });
@@ -36,22 +40,26 @@ module.exports = class RabbitMQ {
         amqp.connect(this.address, (error0, conn) => {
             if (error0) throw error0;
             conn.createChannel((err, ch) => {
-                ch.assertQueue('', { exclusive: true }, (err, q) => {
-        
-                    const corr = uuid();
-                    // console.log(` [x] Requesting user ${id}`);
-                    console.log('q => ', q)
-                    ch.sendToQueue(this.q,
-                        new Buffer(JSON.stringify(obj)),
-                        { correlationId: corr, replyTo: q.queue });
-        
-                    ch.consume(q.queue, (msg) => {
-                        if (msg.properties.correlationId === corr) {
-                            this.callback(JSON.parse(msg.content.toString()));
-                            // setTimeout(() => { conn.close(); process.exit(0) }, 500);
-                        }
-                    }, { noAck: true });
-                });
+                try {
+                    ch.assertQueue('', { exclusive: true }, (err, q) => {
+                        const corr = uuid();
+                        // console.log(` [x] Requesting user ${id}`);
+                        // console.log('q => ', q)
+                        console.log(`Enviando Para ${this.q}`);
+                        ch.sendToQueue(this.q,
+                            new Buffer(JSON.stringify(obj)),
+                            { correlationId: corr, replyTo: q.queue });
+            
+                        ch.consume(q.queue, (msg) => {
+                            if (msg.properties.correlationId === corr) {
+                                this.callback(JSON.parse(msg.content.toString()));
+                                // setTimeout(() => { conn.close(); process.exit(0) }, 500);
+                            }
+                        }, { noAck: true });
+                    });
+                } catch(e) {
+                    console.error(e)
+                }
             });
         });
     }
@@ -62,9 +70,13 @@ module.exports = class RabbitMQ {
             console.log(`Escutando Fila ${this.q}`);
             conn.createChannel((err, ch) => {
                 if (err != null) bail(err);
-                ch.assertQueue(this.q);
-                console.log(" [x] Sent %s", JSON.stringify(msg));
-                ch.sendToQueue(this.q, Buffer.from(JSON.stringify(msg)));
+                try {
+                    ch.assertQueue(this.q);
+                    console.log(" [x] Sent %s", JSON.stringify(msg));
+                    ch.sendToQueue(this.q, Buffer.from(JSON.stringify(msg)));
+                } catch(e) {
+                    console.error(e);
+                }
             });
         });
     }
@@ -75,13 +87,17 @@ module.exports = class RabbitMQ {
             console.log(`Escutando Fila ${this.q}`);
             conn.createChannel(async (err, ch) => {
                 if (err != null) bail(err);
-                ch.assertQueue(this.q);
-                ch.consume(this.q, (msg) => {
-                    if (msg !== null) {
-                        this.callback(JSON.parse(msg.content.toString()));
-                        ch.ack(msg);
-                    }
-                });
+                try {
+                    ch.assertQueue(this.q);
+                    ch.consume(this.q, (msg) => {
+                        if (msg !== null) {
+                            this.callback(JSON.parse(msg.content.toString()));
+                            ch.ack(msg);
+                        }
+                    });
+                } catch(e) {
+                    console.error(e);
+                }
             });
         });
     }
