@@ -53,7 +53,7 @@ module.exports = class RabbitMQ {
                         ch.consume(q.queue, (msg) => {
                             if (msg.properties.correlationId === corr) {
                                 this.callback(JSON.parse(msg.content.toString()));
-                                // setTimeout(() => { conn.close(); process.exit(0) }, 500);
+                                setTimeout(() => { conn.close(); process.exit(0) }, 500);
                             }
                         }, { noAck: true });
                     });
