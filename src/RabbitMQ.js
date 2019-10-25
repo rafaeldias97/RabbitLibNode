@@ -2,7 +2,7 @@ const amqp = require('amqplib/callback_api');
 const uuid = require('uuid');
 
 module.exports = class RabbitMQ {
-    constructor({ callback, address, q, durable = true }) {
+    constructor({ callback = null, address, q, durable = true }) {
         this.callback = callback;
         this.address = address;
         this.q = q;
@@ -37,31 +37,35 @@ module.exports = class RabbitMQ {
     }
 
     rpcPublisher(obj = {}) {
-        amqp.connect(this.address, (error0, conn) => {
-            if (error0) throw error0;
-            conn.createChannel((err, ch) => {
-                try {
-                    ch.assertQueue('', { exclusive: true }, (err, q) => {
-                        const corr = uuid();
-                        // console.log(` [x] Requesting user ${id}`);
-                        // console.log('q => ', q)
-                        console.log(`Enviando Para ${this.q}`);
-                        ch.sendToQueue(this.q,
-                            new Buffer(JSON.stringify(obj)),
-                            { correlationId: corr, replyTo: q.queue });
-            
-                        ch.consume(q.queue, (msg) => {
-                            if (msg.properties.correlationId === corr) {
-                                this.callback(JSON.parse(msg.content.toString()));
-                                setTimeout(() => { conn.close(); }, 500);
-                            }
-                        }, { noAck: true });
-                    });
-                } catch(e) {
-                    console.error(e)
-                }
+        return new Promise((resolve) => {
+            amqp.connect(this.address, (error0, conn) => {
+                if (error0) throw error0;
+                conn.createChannel((err, ch) => {
+                    try {
+                        ch.assertQueue('', { exclusive: true }, (err, q) => {
+                            const corr = uuid();
+                            // console.log(` [x] Requesting user ${id}`);
+                            // console.log('q => ', q)
+                            console.log(`Enviando Para ${this.q}`);
+                            ch.sendToQueue(this.q,
+                                new Buffer(JSON.stringify(obj)),
+                                { correlationId: corr, replyTo: q.queue });
+                
+                            ch.consume(q.queue, (msg) => {
+                                if (msg.properties.correlationId === corr) {
+                                    if (this.callback !== null) this.callback(JSON.parse(msg.content.toString()));
+
+                                    resolve(JSON.parse(msg.content.toString()))
+                                    setTimeout(() => { conn.close(); }, 500);
+                                }
+                            }, { noAck: true });
+                        });
+                    } catch(e) {
+                        console.error(e)
+                    }
+                });
             });
-        });
+        })
     }
 
     publisher(msg = {}) {
@@ -82,23 +86,27 @@ module.exports = class RabbitMQ {
     }
 
     consumer() {
-        amqp.connect(this.address, (error0, conn) => {
-            if (error0) throw error0;
-            console.log(`Escutando Fila ${this.q}`);
-            conn.createChannel(async (err, ch) => {
-                if (err != null) bail(err);
-                try {
-                    ch.assertQueue(this.q);
-                    ch.consume(this.q, (msg) => {
-                        if (msg !== null) {
-                            this.callback(JSON.parse(msg.content.toString()));
-                            ch.ack(msg);
-                        }
-                    });
-                } catch(e) {
-                    console.error(e);
-                }
+        return new Promise((resolve) => {
+            amqp.connect(this.address, (error0, conn) => {
+                if (error0) throw error0;
+                console.log(`Escutando Fila ${this.q}`);
+                conn.createChannel(async (err, ch) => {
+                    if (err != null) bail(err);
+                    try {
+                        ch.assertQueue(this.q);
+                        ch.consume(this.q, (msg) => {
+                            if (msg !== null) {
+                                if (this.callback !== null) this.callback(JSON.parse(msg.content.toString()));
+
+                                resolve(JSON.parse(msg.content.toString()))
+                                ch.ack(msg);
+                            }
+                        });
+                    } catch(e) {
+                        console.error(e);
+                    }
+                });
             });
-        });
+        })
     }
 }
