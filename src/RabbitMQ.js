@@ -46,28 +46,29 @@ module.exports = class RabbitMQ {
             amqp.connect(this.address, (error0, conn) => {
                 if (error0) throw error0;
                 conn.createChannel((err, ch) => {
-                    try {
-                        ch.assertQueue('', { exclusive: true }, (err, q) => {
-                            const corr = uuid();
-                            // console.log(` [x] Requesting user ${id}`);
-                            // console.log('q => ', q)
-                            console.log(`Enviando Para ${this.q}`);
-                            ch.sendToQueue(this.q,
-                                new Buffer(JSON.stringify(obj)),
-                                { correlationId: corr, replyTo: q.queue });
-                
-                            ch.consume(q.queue, (msg) => {
-                                if (msg.properties.correlationId === corr) {
+                    ch.assertQueue('', { exclusive: true }, (err, q) => {
+                        const corr = uuid();
+                        console.log(`Enviando Para Fila ${this.q}`);
+                        ch.sendToQueue(this.q,
+                            new Buffer(JSON.stringify(obj)),
+                            { correlationId: corr, replyTo: q.queue });
+            
+                        ch.consume(q.queue, (msg) => {
+                            if (msg.properties.correlationId === corr) {
+                                try {
                                     if (this.callback !== null) this.callback(JSON.parse(msg.content.toString()));
 
                                     resolve(JSON.parse(msg.content.toString()))
                                     setTimeout(() => { conn.close(); }, 500);
+
+                                } catch(e) {
+                                    console.log(e)
+                                    if (this.callback !== null) this.callback();
+                                    resolve()
                                 }
-                            }, { noAck: true });
-                        });
-                    } catch(e) {
-                        console.error(e)
-                    }
+                            }
+                        }, { noAck: true });
+                    });
                 });
             });
         })
@@ -76,7 +77,7 @@ module.exports = class RabbitMQ {
     publisher(msg = {}) {
         amqp.connect(this.address, (error0, conn) => {
             if (error0) throw error0;
-            console.log(`Escutando Fila ${this.q}`);
+            console.log(`Enviando Para Fila ${this.q}`);
             conn.createChannel((err, ch) => {
                 if (err != null) bail(err);
                 try {
