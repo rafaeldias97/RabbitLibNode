@@ -1,6 +1,6 @@
 {
   "name": "rabbit-lib-node",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "A simple abstraction from amqplib",
   "main": "index.js",
   "scripts": {
