@@ -23,7 +23,8 @@ module.exports = class RabbitMQ {
                 let _self = this
                 ch.consume(this.q, async function reply (msg) {
                     try {
-                        let res = await _self.callback(JSON.parse(msg.content.toString()));
+                        let msgParsed = JSON.parse(msg.content.toString())
+                        let res = await _self.callback(msgParsed);
                         ch.sendToQueue(msg.properties.replyTo,
                             new Buffer(JSON.stringify(res)),
                             { correlationId: msg.properties.correlationId });
@@ -92,19 +93,20 @@ module.exports = class RabbitMQ {
                 console.log(`Escutando Fila ${this.q}`);
                 conn.createChannel(async (err, ch) => {
                     if (err != null) bail(err);
-                    try {
-                        ch.assertQueue(this.q);
-                        ch.consume(this.q, (msg) => {
-                            if (msg !== null) {
-                                if (this.callback !== null) this.callback(JSON.parse(msg.content.toString()));
-
-                                resolve(JSON.parse(msg.content.toString()))
+                    ch.assertQueue(this.q);
+                    ch.consume(this.q, (msg) => {
+                        if (msg !== null) {
+                            try {
+                                let msgParsed = JSON.parse(msg.content.toString())
+                                if (this.callback !== null) this.callback(msgParsed);
+    
+                                resolve(msgParsed)
                                 ch.ack(msg);
+                            } catch (e) {
+                                console.log(e)
                             }
-                        });
-                    } catch(e) {
-                        console.error(e);
-                    }
+                        }
+                    });
                 });
             });
         })
