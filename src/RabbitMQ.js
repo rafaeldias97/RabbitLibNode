@@ -109,6 +109,10 @@ module.exports = class RabbitMQ {
                                 ch.ack(msg);
                             } catch (e) {
                                 console.log(e)
+                                if (this.callback !== null) this.callback();
+    
+                                resolve()
+                                ch.ack(msg);
                             }
                         }
                     });
