@@ -31,6 +31,10 @@ module.exports = class RabbitMQ {
                         ch.ack(msg);
                     } catch(e) {
                         console.error(e);
+                        ch.sendToQueue(msg.properties.replyTo,
+                            new Buffer(JSON.stringify({})),
+                            { correlationId: msg.properties.correlationId });
+                        ch.ack(msg);
                     }
                 });
             });
